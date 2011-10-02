@@ -929,10 +929,10 @@ U8      host_determine_pipe_size     (U16);
 void    host_disable_all_pipe        (void);
 U8      usb_get_nb_pipe_interrupt    (void);
 
-U8 usb_endpoint_wait_for_read_control_enabled();
-U8 usb_endpoint_wait_for_write_enabled();
-U8 usb_endpoint_wait_for_receive_out();
-U8 usb_endpoint_wait_for_IN_ready();
+U8 usb_endpoint_wait_for_read_control_enabled(void);
+U8 usb_endpoint_wait_for_write_enabled(void);
+U8 usb_endpoint_wait_for_receive_out(void);
+U8 usb_endpoint_wait_for_IN_ready(void);
 
 #define usb_endpoint_wait_for_read_enabled usb_endpoint_wait_for_write_enabled
 

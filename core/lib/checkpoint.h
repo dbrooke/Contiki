@@ -54,6 +54,6 @@ void checkpoint_arch_checkpoint(int fd);
 
 void checkpoint_arch_rollback(int fd);
 
-int checkpoint_arch_size();
+int checkpoint_arch_size(void);
 
 #endif /* CHECKPOINT_H */
