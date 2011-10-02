@@ -457,6 +457,23 @@ eventhandler(process_event_t ev, process_data_t data)
             }
           }
 #endif /* UIP_TCP */
+
+#if UIP_UDP
+          for(i = 0; i < UIP_UDP_CONNS; ++i) {
+			  etimer_restart(&periodic);
+			  uip_udp_periodic(i);
+#if UIP_CONF_IPV6
+              tcpip_ipv6_output();
+#else
+              if(uip_len > 0) {
+		PRINTF("tcpip_output from periodic len %d\n", uip_len);
+                tcpip_output();
+		PRINTF("tcpip_output after periodic len %d\n", uip_len);
+              }
+#endif /* UIP_CONF_IPV6 */
+          }
+#endif /* UIP_UDP */
+
 #if UIP_CONF_IP_FORWARD
           uip_fw_periodic();
 #endif /* UIP_CONF_IP_FORWARD */
