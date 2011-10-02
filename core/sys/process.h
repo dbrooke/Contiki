@@ -56,6 +56,7 @@
 
 #include "sys/pt.h"
 #include "sys/cc.h"
+#include <avr/pgmspace.h>
 
 typedef unsigned char process_event_t;
 typedef void *        process_data_t;
@@ -307,7 +308,8 @@ static PT_THREAD(process_thread_##name(struct pt *process_pt,	\
 #else
 #define PROCESS(name, strname)				\
   PROCESS_THREAD(name, ev, data);			\
-  struct process name = { NULL, strname,		\
+  static const char name##_strname[] PROGMEM = strname; \
+  struct process name = { NULL, name##_strname,		\
                           process_thread_##name }
 #endif
 
@@ -316,9 +318,9 @@ static PT_THREAD(process_thread_##name(struct pt *process_pt,	\
 struct process {
   struct process *next;
 #if PROCESS_CONF_NO_PROCESS_NAMES
-#define PROCESS_NAME_STRING(process) ""
+#define PROCESS_NAME_STRING(process) PSTR("")
 #else
-  const char *name;
+  PGM_P name;
 #define PROCESS_NAME_STRING(process) (process)->name
 #endif
   PT_THREAD((* thread)(struct pt *, process_event_t, process_data_t));
