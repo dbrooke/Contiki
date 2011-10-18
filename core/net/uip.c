@@ -102,8 +102,10 @@ const uip_ipaddr_t uip_draddr =
   { UIP_DRIPADDR0, UIP_DRIPADDR1, UIP_DRIPADDR2, UIP_DRIPADDR3 };
 const uip_ipaddr_t uip_netmask =
   { UIP_NETMASK0, UIP_NETMASK1, UIP_NETMASK2, UIP_NETMASK3 };
+const uip_ipaddr_t uip_bcastaddr =
+  { UIP_BCASTADDR0, UIP_BCASTADDR1, UIP_BCASTADDR2, UIP_BCASTADDR3 };
 #else
-uip_ipaddr_t uip_hostaddr, uip_draddr, uip_netmask;
+uip_ipaddr_t uip_hostaddr, uip_draddr, uip_netmask, uip_bcastaddr;
 #endif /* UIP_FIXEDADDR */
 
 const uip_ipaddr_t uip_broadcast_addr =
@@ -909,6 +911,7 @@ uip_process(u8_t flag)
     DEBUG_PRINTF("UDP IP checksum 0x%04x\n", uip_ipchksum());
     if(BUF->proto == UIP_PROTO_UDP &&
        (uip_ipaddr_cmp(&BUF->destipaddr, &uip_broadcast_addr) ||
+        uip_ipaddr_cmp(&BUF->destipaddr, &uip_bcastaddr) ||
 	(BUF->destipaddr.u8[0] & 224) == 224)) {  /* XXX this is a
 						     hack to be able
 						     to receive UDP
@@ -1119,12 +1122,15 @@ uip_process(u8_t flag)
        to be used. If so, the local port number is checked against the
        destination port number in the received packet. If the two port
        numbers match, the remote port number is checked if the
-       connection is bound to a remote port. Finally, if the
+       connection is bound to a remote port, unless the destination
+       in the received packet is a broadcast address. Finally, if the
        connection is bound to a remote IP address, the source IP
        address of the packet is checked. */
     if(uip_udp_conn->lport != 0 &&
        UDPBUF->destport == uip_udp_conn->lport &&
        (uip_udp_conn->rport == 0 ||
+        uip_ipaddr_cmp(&BUF->destipaddr, &uip_broadcast_addr) ||
+        uip_ipaddr_cmp(&BUF->destipaddr, &uip_bcastaddr) ||
         UDPBUF->srcport == uip_udp_conn->rport) &&
        (uip_ipaddr_cmp(&uip_udp_conn->ripaddr, &uip_all_zeroes_addr) ||
 	uip_ipaddr_cmp(&uip_udp_conn->ripaddr, &uip_broadcast_addr) ||

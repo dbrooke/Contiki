@@ -204,6 +204,17 @@ typedef uip_eth_addr uip_lladdr_t;
 
 
 /**
+ * Set the subnet broadcast address.
+ *
+ * \param addr A pointer to a uip_ipaddr_t variable containing the
+ * subnet broadcast IP address.
+ *
+ * \hideinitializer
+ */
+#define uip_setbcastaddr(addr) uip_ipaddr_copy(&uip_bcastaddr, (addr))
+
+
+/**
  * Get the default router's IP address.
  *
  * \param addr A pointer to a uip_ipaddr_t variable that will be
@@ -1903,9 +1914,9 @@ struct uip_udp_hdr {
 
 
 #if UIP_FIXEDADDR
-CCIF extern const uip_ipaddr_t uip_hostaddr, uip_netmask, uip_draddr;
+CCIF extern const uip_ipaddr_t uip_hostaddr, uip_netmask, uip_draddr, uip_bcastaddr;
 #else /* UIP_FIXEDADDR */
-CCIF extern uip_ipaddr_t uip_hostaddr, uip_netmask, uip_draddr;
+CCIF extern uip_ipaddr_t uip_hostaddr, uip_netmask, uip_draddr, uip_bcastaddr;
 #endif /* UIP_FIXEDADDR */
 CCIF extern const uip_ipaddr_t uip_broadcast_addr;
 CCIF extern const uip_ipaddr_t uip_all_zeroes_addr;
