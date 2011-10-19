@@ -1122,15 +1122,12 @@ uip_process(u8_t flag)
        to be used. If so, the local port number is checked against the
        destination port number in the received packet. If the two port
        numbers match, the remote port number is checked if the
-       connection is bound to a remote port, unless the destination
-       in the received packet is a broadcast address. Finally, if the
+       connection is bound to a remote port. Finally, if the
        connection is bound to a remote IP address, the source IP
        address of the packet is checked. */
     if(uip_udp_conn->lport != 0 &&
        UDPBUF->destport == uip_udp_conn->lport &&
        (uip_udp_conn->rport == 0 ||
-        uip_ipaddr_cmp(&BUF->destipaddr, &uip_broadcast_addr) ||
-        uip_ipaddr_cmp(&BUF->destipaddr, &uip_bcastaddr) ||
         UDPBUF->srcport == uip_udp_conn->rport) &&
        (uip_ipaddr_cmp(&uip_udp_conn->ripaddr, &uip_all_zeroes_addr) ||
 	uip_ipaddr_cmp(&uip_udp_conn->ripaddr, &uip_broadcast_addr) ||
