@@ -93,7 +93,7 @@
  * Resources are defined by the RESOURCE macro.
  * Signature: resource name, the RESTful methods it handles, and its URI path (omitting the leading slash).
  */
-RESOURCE(helloworld, METHOD_GET, "hello", "title=\"Hello world (set length with ?len query)\";rt=\"Text\"");
+RESOURCE(helloworld, METHOD_GET, "hello", "title=\"Hello world: ?len=0..\";rt=\"Text\"");
 
 /*
  * A handler function named [resource name]_handler must be implemented for each RESOURCE.
@@ -105,8 +105,9 @@ void
 helloworld_handler(void* request, void* response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
 {
   const char *len = NULL;
-  int length = 12; /* ------->| */
-  char *message = "Hello World! ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789?!at 86 now+2+4at 99 now100..105..110..115..120..125..130..135..140..145..150..155..160";
+  /* Some data that has the length up to REST_MAX_CHUNK_SIZE. For more, see the chunk resource. */
+  char const * const message = "Hello World! ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxy";
+  int length = 12; /*           |<-------->| */
 
   /* The query string can be retrieved by rest_get_query() or parsed for its key-value pairs. */
   if (REST.get_query_variable(request, "len", &len)) {
@@ -124,7 +125,7 @@ helloworld_handler(void* request, void* response, uint8_t *buffer, uint16_t pref
 }
 
 /* This resource mirrors the incoming request. It shows how to access the options and how to set them for the response. */
-RESOURCE(mirror, METHOD_GET | METHOD_POST | METHOD_PUT | METHOD_DELETE | HAS_SUB_RESOURCES, "mirror", "title=\"Returns your decoded message\";rt=\"Debug\"");
+RESOURCE(mirror, METHOD_GET | METHOD_POST | METHOD_PUT | METHOD_DELETE, "debug/mirror", "title=\"Returns your decoded message\";rt=\"Debug\"");
 
 void
 mirror_handler(void* request, void* response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
@@ -281,9 +282,9 @@ mirror_handler(void* request, void* response, uint8_t *buffer, uint16_t preferre
  * These chunk-wise resources must set the offset value to its new position or -1 of the end is reached.
  * (The offset for CoAP's blockwise transfer can go up to 2'147'481'600 = ~2047 M for block size 2048 (reduced to 1024 in observe-03.)
  */
-RESOURCE(chunks, METHOD_GET, "chunks", "title=\"Blockwise demo\";rt=\"Data\"");
+RESOURCE(chunks, METHOD_GET, "debug/chunks", "title=\"Blockwise demo\";rt=\"Data\"");
 
-#define CHUNKS_TOTAL    1030
+#define CHUNKS_TOTAL    2050
 
 void
 chunks_handler(void* request, void* response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
@@ -294,26 +295,35 @@ chunks_handler(void* request, void* response, uint8_t *buffer, uint16_t preferre
   if (*offset>=CHUNKS_TOTAL)
   {
     REST.set_response_status(response, REST.status.BAD_OPTION);
-    REST.set_response_payload(response, (uint8_t*)"Block out of scope", 18);
+    /* A block error message should not exceed the minimum block size (16). */
+    REST.set_response_payload(response, (uint8_t*)"BlockOutOfScope", 15);
     return;
   }
 
   /* Generate data until reaching CHUNKS_TOTAL. */
-  while (strpos<REST_MAX_CHUNK_SIZE) {
-    strpos += snprintf((char *)buffer+strpos, REST_MAX_CHUNK_SIZE-strpos+1, "|%ld|", *offset);
+  while (strpos<preferred_size)
+  {
+    strpos += snprintf((char *)buffer+strpos, preferred_size-strpos+1, "|%ld|", *offset);
   }
-  /* Truncate if above. */
-  if (*offset+strpos > CHUNKS_TOTAL)
+
+  /* snprintf() does not adjust return value if truncated by size. */
+  if (strpos > preferred_size)
+  {
+    strpos = preferred_size;
+  }
+
+  /* Truncate if above total size. */
+  if (*offset+(int32_t)strpos > CHUNKS_TOTAL)
   {
     strpos = CHUNKS_TOTAL - *offset;
   }
 
   REST.set_response_payload(response, buffer, strpos);
 
-  /* Signal chunk awareness of resource to framework. */
+  /* IMPORTANT for chunk-wise resources: Signal chunk awareness to REST engine. */
   *offset += strpos;
 
-  /* Signal end of resource. */
+  /* Signal end of resource representation. */
   if (*offset>=CHUNKS_TOTAL)
   {
     *offset = -1;
@@ -325,7 +335,7 @@ chunks_handler(void* request, void* response, uint8_t *buffer, uint16_t preferre
  * It takes an additional period parameter, which defines the interval to call [name]_periodic_handler().
  * A default post_handler takes care of subscriptions by managing a list of subscribers to notify.
  */
-PERIODIC_RESOURCE(polling, METHOD_GET, "poll", "title=\"Periodic demo\";rt=\"Observable\"", 5*CLOCK_SECOND);
+PERIODIC_RESOURCE(polling, METHOD_GET, "debug/poll", "title=\"Periodic demo\";rt=\"Observable\"", 5*CLOCK_SECOND);
 
 void
 polling_handler(void* request, void* response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
@@ -362,7 +372,7 @@ polling_periodic_handler(resource_t *r)
  * Additionally takes a period parameter that defines the interval to call [name]_periodic_handler().
  * A default post_handler takes care of subscriptions and manages a list of subscribers to notify.
  */
-EVENT_RESOURCE(event, METHOD_GET, "event", "title=\"Event demo\";rt=\"Observable\"");
+EVENT_RESOURCE(event, METHOD_GET, "sensors/button", "title=\"Event demo\";rt=\"Observable\"");
 
 void
 event_handler(void* request, void* response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
@@ -395,7 +405,7 @@ event_event_handler(resource_t *r)
 
 #if defined (PLATFORM_HAS_LEDS)
 /*A simple actuator example, depending on the color query parameter and post variable mode, corresponding led is activated or deactivated*/
-RESOURCE(led, METHOD_POST | METHOD_PUT , "leds", "title=\"Led control (use ?color=red|green|blue and POST/PUT mode=on|off)\";rt=\"Control\"");
+RESOURCE(led, METHOD_POST | METHOD_PUT , "actuators/leds", "title=\"LEDs: ?color=r|g|b, POST/PUT mode=on|off\";rt=\"Control\"");
 
 void
 led_handler(void* request, void* response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
@@ -409,11 +419,11 @@ led_handler(void* request, void* response, uint8_t *buffer, uint16_t preferred_s
   if ((len=REST.get_query_variable(request, "color", &color))) {
     PRINTF("color %.*s\n", len, color);
 
-    if (strncmp(color, "red", len)==0) {
+    if (strncmp(color, "r", len)==0) {
       led = LEDS_RED;
-    } else if(strncmp(color,"green", len)==0) {
+    } else if(strncmp(color,"g", len)==0) {
       led = LEDS_GREEN;
-    } else if (strncmp(color,"blue", len)==0) {
+    } else if (strncmp(color,"b", len)==0) {
       led = LEDS_BLUE;
     } else {
       success = 0;
@@ -442,7 +452,7 @@ led_handler(void* request, void* response, uint8_t *buffer, uint16_t preferred_s
 }
 
 /* A simple actuator example. Toggles the red led */
-RESOURCE(toggle, METHOD_GET | METHOD_PUT | METHOD_POST, "toggle", "title=\"Red LED\";rt=\"Control\"");
+RESOURCE(toggle, METHOD_GET | METHOD_PUT | METHOD_POST, "actuators/toggle", "title=\"Red LED\";rt=\"Control\"");
 void
 toggle_handler(void* request, void* response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
 {
@@ -452,7 +462,7 @@ toggle_handler(void* request, void* response, uint8_t *buffer, uint16_t preferre
 
 #if defined (PLATFORM_HAS_LIGHT)
 /* A simple getter example. Returns the reading from light sensor with a simple etag */
-RESOURCE(light, METHOD_GET, "light", "title=\"Photosynthetic and solar light (supports JSON)\";rt=\"LightSensor\"");
+RESOURCE(light, METHOD_GET, "sensors/light", "title=\"Photosynthetic and solar light (supports JSON)\";rt=\"LightSensor\"");
 void
 light_handler(void* request, void* response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
 {
@@ -493,7 +503,7 @@ light_handler(void* request, void* response, uint8_t *buffer, uint16_t preferred
 
 #if defined (PLATFORM_HAS_BATTERY)
 /* A simple getter example. Returns the reading from light sensor with a simple etag */
-RESOURCE(battery, METHOD_GET, "battery", "title=\"Battery status\";rt=\"Battery\"");
+RESOURCE(battery, METHOD_GET, "sensors/battery", "title=\"Battery status\";rt=\"Battery\"");
 void
 battery_handler(void* request, void* response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
 {
@@ -523,7 +533,6 @@ battery_handler(void* request, void* response, uint8_t *buffer, uint16_t preferr
   }
 }
 #endif /* PLATFORM_HAS_BATTERY */
-
 
 PROCESS(rest_server_example, "Rest Server Example");
 AUTOSTART_PROCESSES(&rest_server_example);
@@ -569,6 +578,7 @@ PROCESS_THREAD(rest_server_example, ev, data)
   rest_activate_resource(&resource_led);
   rest_activate_resource(&resource_toggle);
 #endif /* PLATFORM_HAS_LEDS */
+
 #if defined (PLATFORM_HAS_LIGHT)
   SENSORS_ACTIVATE(light_sensor);
   rest_activate_resource(&resource_light);
