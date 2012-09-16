@@ -145,6 +145,7 @@ create_llao(uint8_t *llao, uint8_t type) {
 void
 uip_nd6_ns_input(void)
 {
+  uint8_t flags;
   PRINTF("Received NS from ");
   PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
   PRINTF(" to ");
@@ -153,8 +154,6 @@ uip_nd6_ns_input(void)
   PRINT6ADDR((uip_ipaddr_t *) (&UIP_ND6_NS_BUF->tgtipaddr));
   PRINTF("\n");
   UIP_STAT(++uip_stat.nd6.recv);
-
-  u8_t flags;
 
 #if UIP_CONF_IPV6_CHECKS
   if((UIP_IP_BUF->ttl != UIP_ND6_HOP_LIMIT) ||
@@ -279,6 +278,10 @@ uip_nd6_ns_input(void)
 
 
 create_na:
+    /* If the node is a router it should set R flag in NAs */
+#if UIP_CONF_ROUTER
+    flags = flags | UIP_ND6_NA_FLAG_ROUTER;
+#endif
   uip_ext_len = 0;
   UIP_IP_BUF->vtc = 0x60;
   UIP_IP_BUF->tcflow = 0;
@@ -351,6 +354,11 @@ uip_nd6_ns_output(uip_ipaddr_t * src, uip_ipaddr_t * dest, uip_ipaddr_t * tgt)
     } else {
       uip_ds6_select_src(&UIP_IP_BUF->srcipaddr, &UIP_IP_BUF->destipaddr);
     }
+    if (uip_is_addr_unspecified(&UIP_IP_BUF->srcipaddr)) {
+      PRINTF("Dropping NS due to no suitable source address\n");
+      uip_len = 0;
+      return;
+    }
     UIP_IP_BUF->len[1] =
       UIP_ICMPH_LEN + UIP_ND6_NS_LEN + UIP_ND6_OPT_LLAO_LEN;
 
@@ -385,6 +393,11 @@ uip_nd6_ns_output(uip_ipaddr_t * src, uip_ipaddr_t * dest, uip_ipaddr_t * tgt)
 void
 uip_nd6_na_input(void)
 {
+  uint8_t is_llchange;
+  uint8_t is_router;
+  uint8_t is_solicited;
+  uint8_t is_override;
+
   PRINTF("Received NA from");
   PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
   PRINTF("to");
@@ -398,11 +411,11 @@ uip_nd6_na_input(void)
    * booleans. the three last one are not 0 or 1 but 0 or 0x80, 0x40, 0x20
    * but it works. Be careful though, do not use tests such as is_router == 1 
    */
-  u8_t is_llchange = 0;
-  u8_t is_router = ((UIP_ND6_NA_BUF->flagsreserved & UIP_ND6_NA_FLAG_ROUTER));
-  u8_t is_solicited =
+  is_llchange = 0;
+  is_router = ((UIP_ND6_NA_BUF->flagsreserved & UIP_ND6_NA_FLAG_ROUTER));
+  is_solicited =
     ((UIP_ND6_NA_BUF->flagsreserved & UIP_ND6_NA_FLAG_SOLICITED));
-  u8_t is_override =
+  is_override =
     ((UIP_ND6_NA_BUF->flagsreserved & UIP_ND6_NA_FLAG_OVERRIDE));
 
 #if UIP_CONF_IPV6_CHECKS

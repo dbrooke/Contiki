@@ -41,36 +41,36 @@
 #ifndef __CONTIKI_CONF_H__
 #define __CONTIKI_CONF_H__
 
-/* MCU and clock rate */
-#define PLATFORM       PLATFORM_AVR
-#define HARWARE_REVISION ATMEGA128RFA1
+/* Platform name, type, and MCU clock rate */
+#define PLATFORM_NAME  "RFA1"
+#define PLATFORM_TYPE  ATMEGA128RFA1
 #ifndef F_CPU
 #define F_CPU          8000000UL
 #endif
+
 #include <stdint.h>
 
-typedef int32_t s32_t;
-typedef unsigned char u8_t;
-typedef unsigned short u16_t;
-typedef unsigned long u32_t;
-typedef unsigned short clock_time_t;
-typedef unsigned short uip_stats_t;
-typedef unsigned long off_t;
-
-void clock_delay(unsigned int us2);
-void clock_wait(int ms10);
-void clock_set_seconds(unsigned long s);
-unsigned long clock_seconds(void);
-
-/* Maximum timer interval for 16 bit clock_time_t */
-#define INFINITE_TIME 0xffff
-
-/* Clock ticks per second */
+/* The AVR tick interrupt usually is done with an 8 bit counter around 128 Hz.
+ * 125 Hz needs slightly more overhead during the interrupt, as does a 32 bit
+ * clock_time_t.
+ */
+ /* Clock ticks per second */
 #define CLOCK_CONF_SECOND 128
-
-/* Maximum tick interval is 0xffff/128 = 511 seconds */
+#if 1
+/* 16 bit counter overflows every ~10 minutes */
+typedef unsigned short clock_time_t;
+#define CLOCK_LT(a,b)  ((signed short)((a)-(b)) < 0)
+#define INFINITE_TIME 0xffff
 #define RIME_CONF_BROADCAST_ANNOUNCEMENT_MAX_TIME INFINITE_TIME/CLOCK_CONF_SECOND /* Default uses 600 */
 #define COLLECT_CONF_BROADCAST_ANNOUNCEMENT_MAX_TIME INFINITE_TIME/CLOCK_CONF_SECOND /* Default uses 600 */
+#else
+typedef unsigned long clock_time_t;
+#define CLOCK_LT(a,b)  ((signed long)((a)-(b)) < 0)
+#define INFINITE_TIME 0xffffffff
+#endif
+/* These routines are not part of the contiki core but can be enabled in cpu/avr/clock.c */
+void clock_delay_msec(uint16_t howlong);
+void clock_adjust_ticks(clock_time_t howmany);
 
 /* Michael Hartman's atmega128rfa1 board has an external 32768Hz crystal connected to TOSC1 and 2 pins similar to the Raven 1284p */
 /* and theoretically can use TIMER2 with it to keep time. Else TIMER0 is used. */
@@ -92,7 +92,8 @@ unsigned long clock_seconds(void);
 /* Default is 4096. Currently used only when elfloader is present. Not tested on Raven */
 //#define MMEM_CONF_SIZE 256
 
-/* Starting address for code received via the codeprop facility. Not tested on Raven */
+/* Starting address for code received via the codeprop facility. Not tested. */
+typedef unsigned long off_t;
 //#define EEPROMFS_ADDR_CODEPROP 0x8000
 
 /* Logging adds 200 bytes to program size. RS232 output slows down webserver. */
@@ -104,6 +105,10 @@ unsigned long clock_seconds(void);
 
 /* More extensive stats, via main loop printfs or webserver status pages */
 #define ENERGEST_CONF_ON          1
+
+/* Packet statistics */
+typedef unsigned short uip_stats_t;
+#define UIP_STATISTICS            0
 
 /* Available watchdog timeouts depend on mcu. Default is WDTO_2S. -1 Disables the watchdog. */
 /* AVR Studio simulator tends to reboot due to clocking the WD 8 times too fast */
@@ -132,7 +137,7 @@ unsigned long clock_seconds(void);
 /* Network setup */
 /* TX routine passes the cca/ack result in the return parameter */
 #define RDC_CONF_HARDWARE_ACK    1
-/* TX routine does automatic cca and optional backoff */
+/* TX routine does automatic cca and optional backoffs */
 #define RDC_CONF_HARDWARE_CSMA   1
 /* Allow MCU sleeping between channel checks */
 #define RDC_CONF_MCU_SLEEP         1
@@ -188,8 +193,10 @@ unsigned long clock_seconds(void);
 #define RF230_CONF_AUTOACK        1
 /* Request 802.15.4 ACK on all packets sent (else autoretry). This is primarily for testing. */
 #define SICSLOWPAN_CONF_ACK_ALL   0
-/* Number of auto retry attempts 0-15 (0 implies don't use extended TX_ARET_ON mode with CCA) */
-#define RF230_CONF_AUTORETRIES    2
+/* 1 + Number of auto retry attempts 0-15 (0 implies don't use extended TX_ARET_ON mode) */
+#define RF230_CONF_FRAME_RETRIES    2
+/* Number of csma retry attempts 0-5 in extended tx mode (7 does immediate tx with no csma) */
+#define RF230_CONF_CSMA_RETRIES   5
 /* Default is one RAM buffer for received packets. More than one may benefit multiple TCP connections or ports */
 #define RF230_CONF_RX_BUFFERS     3
 #define SICSLOWPAN_CONF_FRAG      1
@@ -245,9 +252,10 @@ unsigned long clock_seconds(void);
 #define RTIMER_CONF_NESTED_INTERRUPTS 1
 #define RF230_CONF_AUTOACK        1
 /* A 0 here means non-extended mode; 1 means extended mode with no retry, >1 for retrys */
-#define RF230_CONF_AUTORETRIES    1
-/* A 0 here means no cca; 1 means extended mode with cca but no retry, >1 for backoff retrys */
-#define RF230_CONF_CSMARETRIES    1
+/* Contikimac strobes on its own, but hardware retries are faster */
+#define RF230_CONF_FRAME_RETRIES  1
+/* Long csma backoffs will compromise radio cycling; set to 0 for 1 csma */
+#define RF230_CONF_CSMA_RETRIES   0
 #define SICSLOWPAN_CONF_FRAG      1
 #define SICSLOWPAN_CONF_MAXAGE    3
 /* 211 bytes per queue buffer. Contikimac burst mode needs 15 for a 1280 byte MTU */
@@ -258,7 +266,7 @@ unsigned long clock_seconds(void);
 #define UIP_CONF_MAX_CONNECTIONS  2
 #define UIP_CONF_MAX_LISTENPORTS  4
 #define UIP_CONF_UDP_CONNS        5
-#define UIP_CONF_DS6_NBR_NBU      4
+#define UIP_CONF_DS6_NBR_NBU      20
 #define UIP_CONF_DS6_DEFRT_NBU    2
 #define UIP_CONF_DS6_PREFIX_NBU   3
 #define UIP_CONF_DS6_ROUTE_NBU    4
@@ -269,8 +277,10 @@ unsigned long clock_seconds(void);
 
 #elif 1  /* cx-mac radio cycling */
 /* RF230 does clear-channel assessment in extended mode (autoretries>0) */
-#define RF230_CONF_AUTORETRIES    1
-#if RF230_CONF_AUTORETRIES
+/* These values are guesses */
+#define RF230_CONF_FRAME_RETRIES  10
+#define RF230_CONF_CSMA_RETRIES   2
+#if RF230_CONF_CSMA_RETRIES
 #define NETSTACK_CONF_MAC         nullmac_driver
 #else
 #define NETSTACK_CONF_MAC         csma_driver

@@ -51,7 +51,7 @@
 #include "sys/rtimer.h"
 #include "rtimer-arch.h"
 
-#if defined(__AVR_ATmega1281__) || defined(__AVR_ATmega1284P__)
+#if defined(__AVR_ATmega1284P__)
 #define ETIMSK TIMSK3
 #define ETIFR TIFR3
 #define TICIE3 ICIE3
@@ -65,7 +65,7 @@
 #define OCF3C	OCF3B
 #endif
 
-#if defined(__AVR_AT90USB1287__) || defined(__AVR_ATmega128RFA1__) 
+#if defined(__AVR_ATmega1281__) || defined(__AVR_AT90USB1287__) || defined(__AVR_ATmega128RFA1__)
 #define ETIMSK TIMSK3
 #define ETIFR TIFR3
 #define TICIE3 ICIE3
@@ -317,7 +317,6 @@ uint32_t longhowlong;
     watchdog_start();
 
 /* Adjust clock.c for the time spent sleeping */
-    extern void clock_adjust_ticks(uint16_t howmany);
 	longhowlong=CLOCK_CONF_SECOND;
 	longhowlong*=howlong;
     clock_adjust_ticks(longhowlong/RTIMER_ARCH_SECOND);
