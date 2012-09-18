@@ -153,7 +153,7 @@ handle_dio_timer(void *ptr)
              instance->dio_counter, instance->dio_redundancy);
     }
     instance->dio_send = 0;
-    PRINTF("RPL: Scheduling DIO timer %"PRIu32" ticks in future (sent)\n",
+    PRINTF("RPL: Scheduling DIO timer %lu ticks in future (sent)\n",
            instance->dio_next_delay);
     ctimer_set(&instance->dio_timer, instance->dio_next_delay, handle_dio_timer, instance);
   } else {
@@ -175,12 +175,12 @@ rpl_reset_periodic_timer(void)
 /************************************************************************/
 /* Resets the DIO timer in the instance to its minimal interval. */
 void
-rpl_reset_dio_timer(rpl_instance_t *instance, uint8_t force)
+rpl_reset_dio_timer(rpl_instance_t *instance)
 {
 #if !RPL_LEAF_ONLY
   /* Do not reset if we are already on the minimum interval,
      unless forced to do so. */
-  if(force || instance->dio_intcurrent > instance->dio_intmin) {
+  if(instance->dio_intcurrent > instance->dio_intmin) {
     instance->dio_counter = 0;
     instance->dio_intcurrent = instance->dio_intmin;
     new_dio_interval(instance);
@@ -225,8 +225,8 @@ rpl_schedule_dao(rpl_instance_t *instance)
   if(!etimer_expired(&instance->dao_timer.etimer)) {
     PRINTF("RPL: DAO timer already scheduled\n");
   } else {
-    expiration_time = DEFAULT_DAO_LATENCY / 2 +
-      (random_rand() % (DEFAULT_DAO_LATENCY));
+    expiration_time = RPL_DAO_LATENCY / 2 +
+      (random_rand() % (RPL_DAO_LATENCY));
     PRINTF("RPL: Scheduling DAO timer %u ticks in the future\n",
            (unsigned)expiration_time);
     ctimer_set(&instance->dao_timer, expiration_time,

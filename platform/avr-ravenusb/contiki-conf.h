@@ -47,39 +47,38 @@
 //#pragma mark Basic Configuration
 /* ************************************************************************** */
 
-/* MCU and clock rate */
-#define PLATFORM         PLATFORM_AVR
-#define RAVEN_REVISION	 RAVENUSB_C
+/* Platform name, type, and MCU clock rate */
+#define PLATFORM_NAME  "RAVENUSB"
+#define PLATFORM_TYPE  RAVENUSB_C
 #ifndef F_CPU
-#define F_CPU            8000000UL
+#define F_CPU          8000000UL
 #endif
 
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
-typedef int32_t  s32_t;
-typedef unsigned char u8_t;
-typedef unsigned short u16_t;
-typedef unsigned long u32_t;
-typedef unsigned short clock_time_t;
-typedef unsigned short uip_stats_t;
-typedef unsigned long off_t;
-
-void clock_delay(unsigned int us2);
-void clock_wait(int ms10);
-void clock_set_seconds(unsigned long s);
-unsigned long clock_seconds(void);
-
-/* Maximum timer interval for 16 bit clock_time_t */
-#define INFINITE_TIME 0xffff
-
-/* Clock ticks per second */
+/* The AVR tick interrupt usually is done with an 8 bit counter around 128 Hz.
+ * 125 Hz needs slightly more overhead during the interrupt, as does a 32 bit
+ * clock_time_t.
+ */
+ /* Clock ticks per second */
 #define CLOCK_CONF_SECOND 125
-
-/* Maximum tick interval is 0xffff/125 = 524 seconds */
-#define RIME_CONF_BROADCAST_ANNOUNCEMENT_MAX_TIME CLOCK_CONF_SECOND * 524UL /* Default uses 600UL */
-#define COLLECT_CONF_BROADCAST_ANNOUNCEMENT_MAX_TIME CLOCK_CONF_SECOND * 524UL /* Default uses 600UL */
+#if 1
+/* 16 bit counter overflows every ~10 minutes */
+typedef unsigned short clock_time_t;
+#define CLOCK_LT(a,b)  ((signed short)((a)-(b)) < 0)
+#define INFINITE_TIME 0xffff
+#define RIME_CONF_BROADCAST_ANNOUNCEMENT_MAX_TIME INFINITE_TIME/CLOCK_CONF_SECOND /* Default uses 600 */
+#define COLLECT_CONF_BROADCAST_ANNOUNCEMENT_MAX_TIME INFINITE_TIME/CLOCK_CONF_SECOND /* Default uses 600 */
+#else
+typedef unsigned long clock_time_t;
+#define CLOCK_LT(a,b)  ((signed long)((a)-(b)) < 0)
+#define INFINITE_TIME 0xffffffff
+#endif
+/* These routines are not part of the contiki core but can be enabled in cpu/avr/clock.c */
+void clock_delay_msec(uint16_t howlong);
+void clock_adjust_ticks(clock_time_t howmany);
 
 /* Use EEPROM settings manager, or hard-coded EEPROM reads? */
 /* Generate random MAC address on first startup? */
@@ -97,6 +96,7 @@ unsigned long clock_seconds(void);
 //#define MMEM_CONF_SIZE 256
 
 /* Starting address for code received via the codeprop facility. Not tested on Jackdaw */
+typedef unsigned long off_t;
 //#define EEPROMFS_ADDR_CODEPROP 0x8000
 
 /* Simple stack monitor. Status is displayed from the USB menu with 'm' command */
@@ -264,6 +264,8 @@ extern void mac_log_802_15_4_rx(const uint8_t* buffer, size_t total_len);
 
 #define UIP_CONF_UDP_CHECKSUMS   1
 #define UIP_CONF_TCP_SPLIT       0
+
+typedef unsigned short uip_stats_t;
 #define UIP_CONF_STATISTICS      1
 
   /* Network setup */
@@ -280,13 +282,13 @@ extern void mac_log_802_15_4_rx(const uint8_t* buffer, size_t total_len);
 /* Request 802.15.4 ACK on all packets sent by sicslowpan.c (else autoretry) */
 /* Broadcasts will be duplicated by the retry count, since no one will ACK them! */
 #define SICSLOWPAN_CONF_ACK_ALL   0
-/* Number of auto retry attempts 0-15 (0 implies don't use extended TX_ARET_ON mode with CCA) */
-#define RF230_CONF_AUTORETRIES    2
+/* 1 + Number of auto retry attempts 0-15 (0 implies don't use extended TX_ARET_ON mode with CCA) */
+#define RF230_CONF_FRAME_RETRIES    2
 /* CCA theshold energy -91 to -61 dBm (default -77). Set this smaller than the expected minimum rssi to avoid packet collisions */
 /* The Jackdaw menu 'm' command is helpful for determining the smallest ever received rssi */
 #define RF230_CONF_CCA_THRES    -85
 /* Number of CSMA attempts 0-7. 802.15.4 2003 standard max is 5. */
-#define RF230_CONF_CSMARETRIES    5
+#define RF230_CONF_CSMA_RETRIES    5
 /* Allow sneeze command from jackdaw menu. Useful for testing CCA on other radios */
 /* During sneezing, any access to an RF230 register will hang the MCU and cause a watchdog reset */
 /* The host interface, jackdaw menu and rf230_send routines are temporarily disabled to prevent this */
@@ -308,9 +310,9 @@ extern void mac_log_802_15_4_rx(const uint8_t* buffer, size_t total_len);
 #define NETSTACK_CONF_RADIO       rf230_driver
 #define CHANNEL_802_15_4          26
 /* Enable extended mode with autoack, but no csma/autoretry */
-#define RF230_CONF_AUTORETRIES    1
+#define RF230_CONF_FRAME_RETRIES    1
 #define RF230_CONF_AUTOACK        1
-#define RF230_CONF_CSMARETRIES    0
+#define RF230_CONF_CSMA_RETRIES    0
 #define SICSLOWPAN_CONF_FRAG      1
 #define SICSLOWPAN_CONF_MAXAGE    3
 /* Jackdaw has USB power, can be always listening */
@@ -345,7 +347,7 @@ extern void mac_log_802_15_4_rx(const uint8_t* buffer, size_t total_len);
 #define NETSTACK_CONF_RADIO       rf230_driver
 #define CHANNEL_802_15_4          26
 #define RF230_CONF_AUTOACK        1
-#define RF230_CONF_AUTORETRIES    1
+#define RF230_CONF_FRAME_RETRIES    1
 #define SICSLOWPAN_CONF_FRAG      1
 #define SICSLOWPAN_CONF_MAXAGE    3
 #define CXMAC_CONF_ANNOUNCEMENTS    0
@@ -391,7 +393,6 @@ extern void mac_log_802_15_4_rx(const uint8_t* buffer, size_t total_len);
 #define RF230_MAX_TX_POWER 15
 #define RF230_MIN_RX_POWER 30
  */
-
 #define UIP_CONF_ROUTER             1
 #define UIP_CONF_ND6_SEND_RA        0
 #define UIP_CONF_ND6_REACHABLE_TIME 600000

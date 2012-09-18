@@ -1,6 +1,8 @@
 CONTIKI = ../../../
 APPS += antelope
-CFLAGS += -Wall -g -DPROJECT_CONF_H=\"project-conf.h\"
+CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"
 SMALL = 1
+
+all: netdb-client netdb-server
 
 include $(CONTIKI)/Makefile.include
